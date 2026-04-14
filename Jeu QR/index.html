@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<title>The L🍀CK Search</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500&family=Inter:wght@400;700&display=swap" rel="stylesheet">
+
+<style>
+body {
+    margin:0;
+    background: linear-gradient(135deg, #020617, #0f172a);
+    color:white;
+    font-family: 'Inter', sans-serif;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    touch-action: none; /* 🔥 mobile fix */
+}
+
+h1 {
+    margin-top:20px;
+    font-size:34px;
+    font-family:'Orbitron';
+    animation: glow 2s infinite alternate;
+}
+
+@keyframes glow {
+    from { text-shadow:0 0 5px #22c55e; }
+    to { text-shadow:0 0 25px #22c55e; }
+}
+
+.clover { font-size:30px; }
+
+.grid {
+    display:grid;
+    grid-template-columns:repeat(10, 42px);
+    gap:6px;
+    margin-top:20px;
+}
+
+.cell {
+    width:42px;
+    height:42px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:#020617;
+    color:#22c55e;
+    font-weight:bold;
+    border-radius:10px;
+    cursor:pointer;
+    text-shadow:0 0 6px #22c55e;
+    animation: neon 2s infinite alternate;
+}
+
+@keyframes neon {
+    from { text-shadow:0 0 5px #22c55e; }
+    to { text-shadow:0 0 20px #22c55e; }
+}
+
+.cell:hover { transform:scale(1.1); }
+
+.active {
+    background:#22c55e;
+    color:black;
+}
+
+.found {
+    background:#3b82f6;
+    color:white;
+}
+
+@keyframes pop {
+    50% { transform:scale(1.3); }
+}
+
+.found-anim { animation: pop 0.4s; }
+
+.word-found {
+    color:#22c55e;
+    text-shadow:0 0 10px #22c55e;
+}
+
+button {
+    padding:10px;
+    margin:10px;
+    border:none;
+    border-radius:10px;
+    background:#2563eb;
+    color:white;
+    cursor:pointer;
+}
+
+#wordList {
+    margin-top:20px;
+    letter-spacing:2px;
+    word-spacing:10px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>The L<span class="clover">🍀</span>CK Search</h1>
+
+<button onclick="toggleMusic()">🎵 Music</button>
+<button onclick="restartGame()">🔄 Restart</button>
+
+<div id="grid" class="grid"></div>
+
+<h3>Words to find</h3>
+<div id="wordList"></div>
+
+<p id="result"></p>
+
+<audio id="music" loop>
+    <source src="music.mp3" type="audio/mpeg">
+</audio>
+
+<script>
+
+// 🎵 MUSIC
+let musicPlaying=false;
+const music=document.getElementById("music");
+
+function toggleMusic(){
+    musicPlaying ? music.pause() : music.play();
+    musicPlaying=!musicPlaying;
+}
+
+// CONFIG
+const size=10;
+const alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+const allWords=[
+"EQUALITY","JUSTICE","FAIRNESS","PRIVILEGE",
+"POVERTY","WEALTH","SOCIETY","CLASS",
+"RIGHTS","ETHICS","POWER","STATUS",
+"RESPECT","FREEDOM","HUMAN"
+];
+
+let words=[],grid=[];
+
+// FILTER
+function filterWords(){
+    let filtered=allWords.filter(w=>w.length<=size);
+    words=filtered.sort(()=>0.5-Math.random()).slice(0,8);
+}
+
+// GRID
+function generateGrid(){
+    grid=[];
+    for(let i=0;i<size;i++){
+        grid[i]=[];
+        for(let j=0;j<size;j++){
+            grid[i][j]="";
+        }
+    }
+}
+
+function randomLetter(){
+    return alphabet[Math.floor(Math.random()*alphabet.length)];
+}
+
+// PLACE WORDS
+function placeWord(word){
+    const dirs=[
+        {dx:1,dy:0},{dx:-1,dy:0},
+        {dx:0,dy:1},{dx:0,dy:-1},
+        {dx:1,dy:1},{dx:-1,dy:-1},
+        {dx:1,dy:-1},{dx:-1,dy:1}
+    ];
+
+    let placed=false, attempts=0;
+
+    while(!placed && attempts<100){
+        attempts++;
+
+        let dir=dirs[Math.floor(Math.random()*dirs.length)];
+        let row=Math.floor(Math.random()*size);
+        let col=Math.floor(Math.random()*size);
+
+        let fits=true;
+
+        for(let i=0;i<word.length;i++){
+            let r=row+dir.dy*i;
+            let c=col+dir.dx*i;
+
+            if(r<0||r>=size||c<0||c>=size){ fits=false; break; }
+
+            if(grid[r][c]!=="" && grid[r][c]!==word[i]){
+                fits=false; break;
+            }
+        }
+
+        if(fits){
+            for(let i=0;i<word.length;i++){
+                let r=row+dir.dy*i;
+                let c=col+dir.dx*i;
+                grid[r][c]=word[i];
+            }
+            placed=true;
+        }
+    }
+}
+
+// FILL
+function fillEmpty(){
+    for(let i=0;i<size;i++){
+        for(let j=0;j<size;j++){
+            if(grid[i][j]===""){
+                grid[i][j]=randomLetter();
+            }
+        }
+    }
+}
+
+// SETUP
+function setupGame(){
+    generateGrid();
+    filterWords();
+    words.forEach(placeWord);
+    fillEmpty();
+    displayGrid();
+    updateList();
+
+    foundWords=[];
+    selectedCells=[];
+    current="";
+    direction=null;
+
+    document.getElementById("result").innerText="";
+}
+
+// DISPLAY
+function displayGrid(){
+    const g=document.getElementById("grid");
+    g.innerHTML="";
+
+    for(let i=0;i<size;i++){
+        for(let j=0;j<size;j++){
+            let cell=document.createElement("div");
+            cell.className="cell";
+            cell.innerText=grid[i][j];
+            cell.dataset.row=i;
+            cell.dataset.col=j;
+
+            // PC
+            cell.addEventListener("mousedown",start);
+            cell.addEventListener("mouseover",move);
+
+            // MOBILE
+            cell.addEventListener("touchstart",startTouch);
+            cell.addEventListener("touchmove",moveTouch);
+
+            g.appendChild(cell);
+        }
+    }
+}
+
+// GAME
+let current="",touching=false,foundWords=[],selectedCells=[],direction=null;
+
+function start(e){
+    touching=true;
+    selectedCells=[];
+    current="";
+    direction=null;
+    add(e.target);
+}
+
+function add(cell){
+    if(!cell.classList.contains("found")){
+        selectedCells.push(cell);
+        cell.classList.add("active");
+        current+=cell.innerText;
+    }
+}
+
+function move(e){
+    if(!touching) return;
+    const cell=e.target;
+    const last=selectedCells[selectedCells.length-1];
+
+    let dx=Math.sign(cell.dataset.col-last.dataset.col);
+    let dy=Math.sign(cell.dataset.row-last.dataset.row);
+
+    if(direction===null && selectedCells.length===1){
+        direction={dx,dy};
+        add(cell);
+        return;
+    }
+
+    if(direction && dx===direction.dx && dy===direction.dy){
+        add(cell);
+    }
+}
+
+// 📱 TOUCH
+function startTouch(e){
+    e.preventDefault();
+    const touch=e.touches[0];
+    const el=document.elementFromPoint(touch.clientX,touch.clientY);
+    if(el && el.classList.contains("cell")){
+        start({target:el});
+    }
+}
+
+function moveTouch(e){
+    e.preventDefault();
+    const touch=e.touches[0];
+    const el=document.elementFromPoint(touch.clientX,touch.clientY);
+    if(el && el.classList.contains("cell")){
+        move({target:el});
+    }
+}
+
+// END
+document.addEventListener("mouseup",end);
+document.addEventListener("touchend",end);
+
+function end(){
+    touching=false;
+
+    let reversed=current.split("").reverse().join("");
+
+    if(words.includes(current)||words.includes(reversed)){
+        let found=words.includes(current)?current:reversed;
+
+        if(!foundWords.includes(found)){
+            foundWords.push(found);
+
+            selectedCells.forEach(c=>{
+                c.classList.add("found");
+                c.classList.remove("active");
+                c.classList.add("found-anim");
+                setTimeout(()=>c.classList.remove("found-anim"),400);
+            });
+
+            updateList(found);
+        }
+    }
+
+    selectedCells.forEach(c=>c.classList.remove("active"));
+    selectedCells=[];
+    current="";
+    direction=null;
+
+    if(foundWords.length===words.length){
+        document.getElementById("result").innerText="🎉 GG!";
+    }
+}
+
+// LIST
+function updateList(){
+    let html="";
+    words.forEach(w=>{
+        html+=foundWords.includes(w)
+            ? `<span class="word-found"><s>${w}</s></span> `
+            : w+" ";
+    });
+    document.getElementById("wordList").innerHTML=html;
+}
+
+function restartGame(){ setupGame(); }
+
+setupGame();
+
+</script>
+
+</body>
+</html>
